@@ -48,12 +48,12 @@ namespace ApiErgoFit.Models
 
         // Relacionamentos
         [ForeignKey("IdEmpresa")]
-        public virtual Empresa Empresa { get; set; } = null!;
+        public virtual EmpresaModel Empresa { get; set; } = null!;
 
         [ForeignKey("IdDepartamento")]
-        public virtual Departamento? Departamento { get; set; }
+        public virtual DepartamentoModel? Departamento { get; set; }
 
-        public virtual ICollection<Sessao> Sessoes { get; set; } = new List<Sessao>();
+        public virtual ICollection<SessaoModel> Sessoes { get; set; } = new List<SessaoModel>();
 
         // Propriedade calculada para nome completo
         [NotMapped]
