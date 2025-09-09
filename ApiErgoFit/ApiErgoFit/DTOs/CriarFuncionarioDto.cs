@@ -1,12 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ApiErgoFit.Models
+namespace ApiErgoFit.DTOs
 {
-    public class FuncionarioModel
+    public class CriarFuncionarioDto
     {
-        [Key]
-        public int Id { get; set; }
 
         [Required]
         [StringLength(100)]
@@ -32,33 +29,12 @@ namespace ApiErgoFit.Models
         [StringLength(20)]
         public string? Matricula { get; set; }
 
-        public bool Ativo { get; set; } = true;
-
         public DateTime? DataAdmissao { get; set; }
 
-        public DateTime DataCriacao { get; set; } = DateTime.Now;
-
-        public DateTime DataDeAlteracao { get; set; } = DateTime.Now;
-
-        // Foreign Keys
         [Required]
         public int IdEmpresa { get; set; }
 
         public int? IdDepartamento { get; set; }
-
-        // Relacionamentos
-        [ForeignKey("IdEmpresa")]
-        public virtual EmpresaModel Empresa { get; set; } = null!;
-        
-        [ForeignKey("IdDepartamento")]
-        public virtual DepartamentoModel? Departamento { get; set; }
-
-        public virtual ICollection<SessaoModel> Sessoes { get; set; } = new List<SessaoModel>();
-
-        // Propriedade calculada para nome completo
-        [NotMapped]
-        public string NomeCompleto => $"{Nome} {Sobrenome}";
-
-
     }
 }
+    

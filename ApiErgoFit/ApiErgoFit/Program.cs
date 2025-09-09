@@ -1,6 +1,9 @@
 using ApiErgoFit.DataContext;
+using ApiErgoFit.Service.DepartamentoService;
 using ApiErgoFit.Service.FuncionarioService;
+using ApiErgoFit.Service.UsuarioMasterService;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,11 +14,20 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<IFuncionarioInterface, FuncionarioService>();
+builder.Services.AddScoped<IDepartamentoInterface, DepartamentoService>();
+builder.Services.AddScoped<IUsuarioMasterInterface,  UsuarioMasterService>();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
 
 var app = builder.Build();
 
