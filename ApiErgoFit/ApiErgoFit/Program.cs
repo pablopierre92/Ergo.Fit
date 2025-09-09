@@ -1,5 +1,6 @@
 using ApiErgoFit.DataContext;
 using ApiErgoFit.Service.DepartamentoService;
+using ApiErgoFit.Service.EmpresaService;
 using ApiErgoFit.Service.FuncionarioService;
 using ApiErgoFit.Service.UsuarioMasterService;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<IFuncionarioInterface, FuncionarioService>();
 builder.Services.AddScoped<IDepartamentoInterface, DepartamentoService>();
 builder.Services.AddScoped<IUsuarioMasterInterface,  UsuarioMasterService>();
+builder.Services.AddScoped<IEmpresaInterface, EmpresaService>();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {

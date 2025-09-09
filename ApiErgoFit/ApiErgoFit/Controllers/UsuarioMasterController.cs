@@ -30,7 +30,7 @@ namespace ApiErgoFit.Controllers
 
         [HttpPost]
 
-        public async Task<ActionResult<ServiceResponse<DepartamentoModel>>> CriarUsuario([FromBody] CriarUsuarioMasterDto dto)
+        public async Task<ActionResult<ServiceResponse<UsuarioMasterModel>>> CriarUsuario([FromBody] CriarUsuarioMasterDto dto)
         {
             var resultado = await _usuarioMasterInterface.CriarUsuario(dto);
             return Ok(resultado); // Retorna UsuarioMasterModel na resposta

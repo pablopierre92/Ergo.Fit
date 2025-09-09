@@ -11,5 +11,8 @@ namespace ApiErgoFit.DTOs
         [StringLength(500, ErrorMessage = "Descrição deve ter no máximo 500 caracteres")]
         public string? Descricao { get; set; }
 
+        [Required]
+        public int IdEmpresa { get; set; }
+
     }
 }

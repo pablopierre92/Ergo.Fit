@@ -21,6 +21,7 @@ namespace ApiErgoFit.Service.DepartamentoService
             {
                 Nome = dto.Nome,
                 Descricao = dto.Descricao,
+                IdEmpresa = dto.IdEmpresa,
                
             };
 
