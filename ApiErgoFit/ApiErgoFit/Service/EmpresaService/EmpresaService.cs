@@ -1,6 +1,7 @@
 ﻿using ApiErgoFit.DataContext;
 using ApiErgoFit.DTOs;
 using ApiErgoFit.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace ApiErgoFit.Service.EmpresaService
 {
@@ -45,7 +46,13 @@ namespace ApiErgoFit.Service.EmpresaService
 
             try
             {
-                serviceResponse.Dados = _context.Empresas.ToList();
+               //serviceResponse.Dados = _context.Empresas.ToList();
+
+                serviceResponse.Dados = await _context.Empresas
+                    .Include(e => e.Departamentos)  // ← Carrega os departamentos
+                    .Include(e => e.Funcionarios)   // ← Carrega os funcionários
+                    .ToListAsync();                  // ← Async
+
 
                 if (serviceResponse.Dados.Count == 0)
                 {

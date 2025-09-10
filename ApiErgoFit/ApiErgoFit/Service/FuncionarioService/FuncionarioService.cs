@@ -1,6 +1,7 @@
 ﻿using ApiErgoFit.DataContext;
 using ApiErgoFit.DTOs;
 using ApiErgoFit.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace ApiErgoFit.Service.FuncionarioService
 {
@@ -90,9 +91,14 @@ namespace ApiErgoFit.Service.FuncionarioService
 
             try
             {
-                serviceResponse.Dados = _context.Funcionarios.ToList();
+                // serviceResponse.Dados = _context.Funcionarios.ToList();
 
-                if(serviceResponse.Dados.Count == 0)
+                serviceResponse.Dados = await _context.Funcionarios
+                    .Include(e => e.Empresa)  // ← Carrega a empresa
+                    .Include(e => e.Departamento)   // ← Carrega os departamentos
+                    .ToListAsync();
+
+                if (serviceResponse.Dados.Count == 0)
                 {
                     serviceResponse.Mensagem = "Nenhum dado encontrado!";
                 }
