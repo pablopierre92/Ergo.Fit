@@ -1,8 +1,27 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations;
 
 namespace ApiErgoFit.Models
 {
-    public class UsuarioMasterModel
+
+    // A classe agora herda de IdentityUser para integração com o ASP.NET Core Identity
+    public class UsuarioMasterModel : IdentityUser
+    {
+        // O Id, Email e Senha agora são gerenciados pela classe base IdentityUser.
+
+        [Required]
+        [StringLength(100)]
+        public string Nome { get; set; } = string.Empty;
+
+        public DateTime DataCriacao { get; set; } = DateTime.Now;
+
+        public bool Ativo { get; set; } = true;
+
+        // Relacionamento com EmpresaModel. O Id agora será o Id do IdentityUser.
+        public virtual ICollection<EmpresaModel> EmpresasCriadas { get; set; } = new List<EmpresaModel>();
+    }
+
+    /*public class UsuarioMasterModel
     {
         [Key]
         public int Id { get; set; }
@@ -28,5 +47,5 @@ namespace ApiErgoFit.Models
         public virtual ICollection<EmpresaModel> EmpresasCriadas { get; set; } = new List<EmpresaModel>();
 
 
-    }
+    }*/
 }

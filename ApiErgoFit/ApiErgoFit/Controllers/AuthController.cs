@@ -1,56 +1,85 @@
 ﻿using ApiErgoFit.DTOs;
 using ApiErgoFit.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.Threading.Tasks;
 
-[Route("api/[controller]")]
-[ApiController]
-public class AuthController : ControllerBase
+namespace ApiErgoFit.Controllers
 {
-    private readonly UserManager<IdentityUser> _userManager;
-    private readonly IConfiguration _configuration;
-    private readonly RoleManager<IdentityRole> _roleManager;
-
-    public AuthController(UserManager<IdentityUser> userManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager)
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AuthController : ControllerBase
     {
-        _userManager = userManager;
-        _configuration = configuration;
-        _roleManager = roleManager;
-    }
+        private readonly UserManager<IdentityUser> _userManager;
+        private readonly SignInManager<IdentityUser> _signInManager;
+        private readonly IConfiguration _configuration;
+        private readonly RoleManager<IdentityRole> _roleManager;
 
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginDto model)
-    {
-        var user = await _userManager.FindByEmailAsync(model.Email);
-        if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
+        public AuthController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, IConfiguration configuration, RoleManager<IdentityRole> roleManager)
         {
-            var claims = new List<Claim>
+            _userManager = userManager;
+            _signInManager = signInManager;
+            _configuration = configuration;
+            _roleManager = roleManager;
+        }
+
+        [HttpPost("register/master")]
+        public async Task<IActionResult> RegisterMaster([FromBody] CriarUsuarioMasterDto dto)
+        {
+            var user = new UsuarioMasterModel
             {
-                new Claim(ClaimTypes.Name, user.Email),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                Nome = dto.Nome,
+                UserName = dto.Email,
+                Email = dto.Email
             };
 
-            var roles = await _userManager.GetRolesAsync(user);
-            foreach (var role in roles)
+            var result = await _userManager.CreateAsync(user, dto.Senha);
+
+            if (result.Succeeded)
             {
-                claims.Add(new Claim(ClaimTypes.Role, role));
+                if (!await _roleManager.RoleExistsAsync("Master"))
+                {
+                    await _roleManager.CreateAsync(new IdentityRole("Master"));
+                }
+                await _userManager.AddToRoleAsync(user, "Master");
+
+                return Ok(new { success = true, message = "Usuário mestre registrado com sucesso!" });
             }
 
-            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
-                expires: DateTime.Now.AddHours(3),
-                claims: claims,
-                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
-            );
+            return BadRequest(new { success = false, message = "Falha no registro", errors = result.Errors.Select(e => e.Description) });
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+        {
+            var user = await _userManager.FindByEmailAsync(loginDto.Email);
+            if (user == null)
+            {
+                return Unauthorized(new { message = "Credenciais inválidas." });
+            }
+
+            var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);
+            if (!result.Succeeded)
+            {
+                return Unauthorized(new { message = "Credenciais inválidas." });
+            }
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            var authClaims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, user.UserName),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            };
+
+            foreach (var userRole in userRoles)
+            {
+                authClaims.Add(new Claim(ClaimTypes.Role, userRole));
+            }
+
+            var token = GetToken(authClaims);
 
             return Ok(new
             {
@@ -58,33 +87,20 @@ public class AuthController : ControllerBase
                 expiration = token.ValidTo
             });
         }
-        return Unauthorized();
-    }
 
-    [HttpPost("register/master")]
-    public async Task<IActionResult> RegisterMaster([FromBody] RegisterDto model)
-    {
-        var userExists = await _userManager.FindByEmailAsync(model.Email);
-        if (userExists != null)
+        private JwtSecurityToken GetToken(List<Claim> authClaims)
         {
-            return StatusCode(StatusCodes.Status409Conflict, new { message = "Usuário já existe!" });
+            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]));
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["JWT:ValidIssuer"],
+                audience: _configuration["JWT:ValidAudience"],
+                expires: DateTime.Now.AddHours(3),
+                claims: authClaims,
+                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+            );
+
+            return token;
         }
-
-        var user = new IdentityUser { UserName = model.Email, Email = model.Email, EmailConfirmed = true };
-        var result = await _userManager.CreateAsync(user, model.Password);
-
-        if (!result.Succeeded)
-        {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Criação de usuário falhou! Por favor, verifique os detalhes do usuário e a senha." });
-        }
-
-        if (!await _roleManager.RoleExistsAsync("Master"))
-        {
-            await _roleManager.CreateAsync(new IdentityRole("Master"));
-        }
-
-        await _userManager.AddToRoleAsync(user, "Master");
-
-        return Ok(new { message = "Usuário mestre criado com sucesso!" });
     }
 }

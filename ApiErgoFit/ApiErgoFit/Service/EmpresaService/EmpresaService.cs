@@ -1,43 +1,85 @@
 ﻿using ApiErgoFit.DataContext;
-using ApiErgoFit.DTOs;
+//using ApiErgoFit.Interfaces;
 using ApiErgoFit.Models;
+using ApiErgoFit.DTOs;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 
 namespace ApiErgoFit.Service.EmpresaService
 {
     public class EmpresaService : IEmpresaInterface
     {
-
         private readonly ApplicationDbContext _context;
+        private readonly UserManager<EmpresaUsuarioModel> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
 
-        public EmpresaService(ApplicationDbContext context)
+        public EmpresaService(ApplicationDbContext context, UserManager<EmpresaUsuarioModel> userManager, RoleManager<IdentityRole> roleManager)
         {
             _context = context;
+            _userManager = userManager;
+            _roleManager = roleManager;
         }
 
         public async Task<ServiceResponse<EmpresaModel>> CriarEmpresa(CriarEmpresaDto dto)
         {
-            // Converte DTO para Model
-            var empresa = new EmpresaModel
+            var serviceResponse = new ServiceResponse<EmpresaModel>();
+
+            try
             {
-                Nome = dto.Nome,
-                Cnpj = dto.Cnpj,
-                Email = dto.Email,
-                Senha = dto.Senha,
-                DataVencimento = dto.DataVencimento,
-                
-                
-                // Propriedades automáticas
-                DataCriacao = DateTime.Now,
-                DataAtualizacao = DateTime.Now,
-                Ativo = true
-            };
+                // Verifica se o CNPJ já existe como e-mail de um usuário
+                var existingUser = await _userManager.FindByEmailAsync(dto.Cnpj);
+                if (existingUser != null)
+                {
+                    serviceResponse.Sucesso = false;
+                    serviceResponse.Mensagem = "Já existe uma empresa cadastrada com este CNPJ.";
+                    return serviceResponse;
+                }
 
-            // Salva no banco usando EmpresaModel
-            _context.Empresas.Add(empresa);
-            await _context.SaveChangesAsync();
+                // Cria o modelo de empresa
+                var empresa = new EmpresaModel
+                {
+                    Nome = dto.Nome,
+                    Cnpj = dto.Cnpj,
+                    DataVencimento = dto.DataVencimento,
+                    DataCriacao = DateTime.Now,
+                    DataAtualizacao = DateTime.Now,
+                    Ativo = true
+                };
 
-            return new ServiceResponse<EmpresaModel> { Dados = empresa };
+                // Cria o usuário de autenticação para a empresa
+                var empresaUsuario = new EmpresaUsuarioModel
+                {
+                    UserName = dto.Cnpj,
+                    Email = dto.Cnpj,
+                    EmailConfirmed = true,
+                    Empresa = empresa // Relaciona o usuário com a empresa
+                };
+
+                var result = await _userManager.CreateAsync(empresaUsuario, dto.Senha);
+
+                if (!result.Succeeded)
+                {
+                    serviceResponse.Sucesso = false;
+                    serviceResponse.Mensagem = "Falha ao criar o usuário da empresa.";
+                    return serviceResponse;
+                }
+
+                if (!await _roleManager.RoleExistsAsync("Empresa"))
+                {
+                    await _roleManager.CreateAsync(new IdentityRole("Empresa"));
+                }
+                await _userManager.AddToRoleAsync(empresaUsuario, "Empresa");
+
+                serviceResponse.Dados = empresa;
+                serviceResponse.Mensagem = "Empresa criada com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                serviceResponse.Sucesso = false;
+                serviceResponse.Mensagem = ex.Message;
+            }
+
+            return serviceResponse;
         }
 
         public async Task<ServiceResponse<List<EmpresaModel>>> GetEmpresas()
@@ -46,32 +88,23 @@ namespace ApiErgoFit.Service.EmpresaService
 
             try
             {
-               //serviceResponse.Dados = _context.Empresas.ToList();
-
                 serviceResponse.Dados = await _context.Empresas
-                    .Include(e => e.Departamentos)  // ← Carrega os departamentos
-                    .Include(e => e.Funcionarios)   // ← Carrega os funcionários
-                    .ToListAsync();                  // ← Async
-
+                    .Include(e => e.Departamentos)
+                    .Include(e => e.Funcionarios)
+                    .ToListAsync();
 
                 if (serviceResponse.Dados.Count == 0)
                 {
                     serviceResponse.Mensagem = "Nenhum dado encontrado!";
                 }
-
-
-
             }
             catch (Exception ex)
             {
-
                 serviceResponse.Mensagem = ex.Message;
                 serviceResponse.Sucesso = false;
-
             }
 
             return serviceResponse;
         }
     }
- }
-
+}

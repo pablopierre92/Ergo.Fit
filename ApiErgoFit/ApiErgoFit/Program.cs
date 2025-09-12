@@ -1,71 +1,68 @@
 using ApiErgoFit.DataContext;
-using ApiErgoFit.Service.DepartamentoService;
-using ApiErgoFit.Service.EmpresaService;
-using ApiErgoFit.Service.FuncionarioService;
-using ApiErgoFit.Service.UsuarioMasterService;
+using ApiErgoFit.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Adiciona os serviços para os controladores e o tratamento de JSON
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-    });
+// Add services to the container.
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-// Adiciona os serviços do ASP.NET Core Identity
-builder.Services.AddIdentityCore<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>();
-
-// Adiciona a autenticação JWT
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-    };
-});
-
-// Adiciona os serviços de autorização
-builder.Services.AddAuthorization();
-
-// Configura o banco de dados
+// Configure the database connection
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
-// Adiciona o Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// Configure Identity with multiple user types
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+{
+    // Password settings
+    options.Password.RequireDigit = true;
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
+}).AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
 
-// Injeta as dependências de serviço
-builder.Services.AddScoped<IFuncionarioInterface, FuncionarioService>();
-builder.Services.AddScoped<IDepartamentoInterface, DepartamentoService>();
-builder.Services.AddScoped<IUsuarioMasterInterface, UsuarioMasterService>();
-builder.Services.AddScoped<IEmpresaInterface, EmpresaService>();
+// Configure JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"];
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+// Add Authorization policies
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("MasterPolicy", policy => policy.RequireRole("Master"));
+    options.AddPolicy("EmpresaPolicy", policy => policy.RequireRole("Empresa"));
+    options.AddPolicy("FuncionarioPolicy", policy => policy.RequireRole("Funcionario"));
+});
+
 
 var app = builder.Build();
 
-// Configura o pipeline de requisição HTTP
+// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -73,8 +70,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
